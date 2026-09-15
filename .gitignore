@@ -4,6 +4,7 @@ backend/node_modules/
 # Environment variables and secrets
 backend/.env
 .env
+.env.example
 
 # Local data
 backend/data/db.json
