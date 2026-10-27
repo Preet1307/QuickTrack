@@ -108,20 +108,45 @@ origin, so there's no CORS configuration to fight with in normal use.
 Open `http://localhost:3000` in a browser, register an account, and start
 logging.
 
-## Deploying only the frontend to Vercel
+## Deploying the full app to Vercel
 
-The frontend can be deployed as a static Vercel project while the API and MySQL
-stay on your computer for personal use. In Vercel, import the repository and
-set **Root Directory** to `frontend`; no build command or output directory is
-needed.
+The repository root is configured to deploy the Express API and frontend
+together. The frontend uses the local API when opened on `localhost`, and the
+same-origin `/api` endpoints on a deployed site.
 
-The frontend's `config.js` points API requests to `http://localhost:3000/api`.
-This setup only works in a browser on the same computer where the backend and
-MySQL are running. Start the backend with `cd backend` and `npm start` before
-using the Vercel site. Other visitors' browsers would interpret `localhost` as
-their own computers, not yours. To make the app available to other people, host
-the backend and database online and change `frontend/config.js` to the hosted
-API URL. Never put API keys or database credentials in frontend files.
+Vercel cannot connect to MySQL running only on your computer. Create or use a
+hosted MySQL database that accepts secure connections from Vercel, and migrate
+any local records you want to keep. In Vercel, import this repository and use
+the repository root (not `backend` or `frontend`) as the **Root Directory**.
+Choose the **Express** framework preset and set the build command to
+`npm run build`; leave the output directory unset.
+
+Add these environment variables in the Vercel project settings for Production
+(and Preview if needed):
+
+```env
+DB_HOST=your-hosted-mysql-host
+DB_PORT=3306
+DB_USER=your-mysql-user
+DB_PASSWORD=your-mysql-password
+DB_NAME=QuickTrack
+DB_SSL=true
+DB_CONNECTION_LIMIT=3
+JWT_SECRET=your-long-random-secret
+JWT_EXPIRES_IN=7d
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Set `DB_SSL` as required by the database provider. Add the SMTP variables
+(`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and
+`EMAIL_FROM`) for email verification. Google sign-in is optional; if enabled,
+set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FRONTEND_URL` to your Vercel
+site URL, and `GOOGLE_REDIRECT_URI` to
+`https://your-site.vercel.app/api/auth/google/callback`. Add that callback URL
+to the allowed redirect URIs in Google Cloud.
+
+Redeploy after configuring environment variables. Keep credentials in Vercel's
+environment settings and never put them in frontend files or Git.
 
 ## API summary
 
