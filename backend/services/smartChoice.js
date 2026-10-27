@@ -12,6 +12,14 @@ async function getSmartChoiceReply({ user, entries, supplements, message, histor
       weightKg: user.weight,
       goal: user.goal,
       medications: user.meds || 'not provided',
+      target: {
+        goal: user.targetGoal || user.goal,
+        targetWeightKg: user.targetWeight || 'not provided',
+        timeline: user.targetTimeValue && user.targetTimeUnit
+          ? `${user.targetTimeValue} ${user.targetTimeUnit}${user.targetTimeValue === 1 ? '' : 's'}`
+          : 'not provided',
+      },
+      preciseMeasurementsCm: user.measurements || 'not provided',
     },
     recentEntries: entries.map(entry => ({ date: entry.date, type: entry.type, description: entry.name, calories: entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, fiber: entry.fiber })),
     ongoingSupplements: (supplements || []).map(supplement => ({ name: supplement.name, dailyDose: supplement.dose, calories: supplement.calories, protein: supplement.protein, carbs: supplement.carbs, fat: supplement.fat, fiber: supplement.fiber })),

@@ -129,7 +129,7 @@ input, select, textarea{font-family:inherit;}
 
 /* ---------- APP SHELL ---------- */
 #app-screen{display:none;min-height:100vh;grid-template-columns:230px 1fr;}
-.sidebar{background:var(--sidebar);color:var(--sidebar-ink);padding:28px 20px;display:flex;flex-direction:column;}
+.sidebar{background:var(--sidebar);color:var(--sidebar-ink);padding:28px 20px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;align-self:start;overflow-y:auto;}
 .sidebar .brand{font-family:'Fraunces',serif;font-size:19px;color:#fff;font-weight:600;margin-bottom:36px;padding-left:6px;}
 .sidebar .brand span{color:var(--accent);}
 .nav-item{
@@ -141,7 +141,7 @@ input, select, textarea{font-family:inherit;}
 .sidebar-spacer{flex:1;}
 .nav-item.logout{color:#C98B7C;font-size:13px;}
 
-.main{padding:32px 40px 60px;overflow-x:hidden;}
+.main{padding:32px 40px 20px;overflow-x:hidden;}
 .topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:12px;}
 .greeting{font-size:26px;}
 .greeting .sub{display:block;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--ink-soft);margin-top:4px;}
@@ -180,13 +180,15 @@ input, select, textarea{font-family:inherit;}
 .entry-list .remove{color:var(--danger);cursor:pointer;font-size:12px;margin-left:8px;}
 .empty-note{color:var(--ink-faint);font-size:13px;padding:10px 0;}
 
-.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.calendar-panel{height:calc(100vh - 140px);min-height:560px;display:flex;flex-direction:column;overflow:hidden;}
+.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex:none;}
 .cal-header button{background:none;border:1px solid var(--line);border-radius:var(--radius-card);width:28px;height:28px;color:var(--ink-soft);}
 .cal-title{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;flex:none;}
+.calendar-panel #cal-grid{grid-template-rows:repeat(6,minmax(0,1fr));flex:1;min-height:0;}
 .cal-dow{text-align:center;font-size:10.5px;color:var(--ink-faint);font-weight:600;padding-bottom:4px;}
 .cal-day{
-  aspect-ratio:1;border-radius:var(--radius-card);border:1px solid var(--line);
+  min-height:0;border-radius:var(--radius-card);border:1px solid var(--line);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   font-size:12px;cursor:pointer;position:relative;background:var(--paper);color:var(--ink-soft);
 }
@@ -199,7 +201,7 @@ input, select, textarea{font-family:inherit;}
 .cal-day.over .d-dot{background:var(--danger);}
 .cal-day.nodata .d-dot{background:var(--line);}
 
-.cal-day-detail{margin-top:16px;border-top:1px solid var(--line);padding-top:14px;}
+.cal-day-detail{margin-top:16px;border-top:1px solid var(--line);padding-top:14px;flex:none;}
 .cal-day-detail .dd-title{font-size:13px;font-weight:600;margin-bottom:8px;}
 .cal-day-detail .dd-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-soft);padding:3px 0;}
 
@@ -210,7 +212,12 @@ input, select, textarea{font-family:inherit;}
 .diet-header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:22px;}
 .diet-header h1{font-size:28px;}
 .diet-header p{margin:6px 0 0;color:var(--ink-soft);font-size:13px;}
-.macro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.macro-total-panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-card);padding:18px 22px;margin-bottom:18px;max-width:620px;}
+.macro-total-panel h3{font-size:16px;margin-bottom:10px;}
+.macro-total-list{border-top:1px solid var(--line);}
+.macro-total-row{display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink-soft);}
+.macro-total-row:last-child{border-bottom:0;}
+.macro-total-row strong{font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--ink);}
 .macro-card{background:var(--paper);border:1px solid var(--line);border-top:3px solid var(--forest);border-radius:var(--radius-card);padding:16px 18px;}
 .macro-card.carbs{border-top-color:var(--accent-deep);}.macro-card.fat{border-top-color:var(--danger);}.macro-card.fiber{border-top-color:#567A91;}
 .macro-card span{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600;}
@@ -238,6 +245,23 @@ input, select, textarea{font-family:inherit;}
 .profile-summary b{color:var(--ink);}
 .profile-form .field{margin-bottom:14px;}
 .profile-form input[readonly]{background:var(--bg);color:var(--ink-soft);}
+.target-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start;max-width:980px;}
+.target-panel{max-width:620px;}
+.target-header{margin-bottom:22px;}
+.target-time{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.target-time input,.target-time select,.profile-form select{width:100%;border:1px solid var(--line);border-radius:var(--radius-card);padding:10px 11px;font-size:13.5px;color:var(--ink);background:var(--paper);}
+.precise-monitoring{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-card);overflow:hidden;}
+.precise-monitoring summary{cursor:pointer;list-style:none;padding:17px 18px;font-size:14px;font-weight:600;color:var(--ink);}
+.precise-monitoring summary::-webkit-details-marker{display:none;}
+.precise-monitoring summary::after{content:'+';float:right;font-family:'IBM Plex Mono',monospace;color:var(--accent-deep);font-size:17px;line-height:14px;}
+.precise-monitoring[open] summary::after{content:'−';}
+.precise-monitoring summary span{display:block;margin-top:5px;font-size:11px;font-weight:400;color:var(--ink-faint);}
+.precise-content{border-top:1px solid var(--line);padding:16px 18px 18px;}
+.precise-content p{font-size:12px;color:var(--ink-soft);line-height:1.5;margin:0 0 16px;}
+.measurement-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.measurement-grid .field{margin:0;}
+.measurement-grid label{font-size:11px;}
+.measurement-grid input{width:100%;border:1px solid var(--line);border-radius:var(--radius-card);padding:9px 10px;font-size:13px;}
 .smartchoice-shell{max-width:820px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-card);padding:26px;}
 .smartchoice-header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;border-bottom:1px solid var(--line);padding-bottom:18px;}
 .smartchoice-header h1{font-size:28px;}
@@ -266,16 +290,18 @@ input, select, textarea{font-family:inherit;}
   #auth-screen{grid-template-columns:1fr;}
   .auth-hero{display:none;}
   #app-screen{grid-template-columns:1fr;}
-  .sidebar{flex-direction:row;align-items:center;padding:14px 18px;overflow-x:auto;}
+  .sidebar{flex-direction:row;align-items:center;padding:14px 18px;overflow-x:auto;height:auto;position:sticky;top:0;z-index:10;}
   .sidebar .brand{margin-bottom:0;margin-right:18px;}
   .sidebar-spacer{display:none;}
   .nav-item{white-space:nowrap;}
   .main{padding:22px 18px 50px;}
   .stat-grid{grid-template-columns:1fr 1fr;}
-  .macro-grid{grid-template-columns:1fr 1fr;}
   .diet-header{flex-direction:column;}
   .panel-grid{grid-template-columns:1fr;}
   .device-grid{grid-template-columns:1fr;}
+  .calendar-panel{height:calc(100vh - 150px);min-height:480px;}
+  .target-layout{grid-template-columns:1fr;}
+  .target-panel{max-width:none;}
   .field-row{grid-template-columns:1fr;}
   .goal-options{grid-template-columns:1fr;}
 }

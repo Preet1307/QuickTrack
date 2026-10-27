@@ -1,0 +1,1 @@
+window.QUICKTRACK_API_BASE = 'http://localhost:3000/api';

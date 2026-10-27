@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = window.QUICKTRACK_API_BASE || '/api';
 
 let token = localStorage.getItem('quicktrack_token') || localStorage.getItem('ledger_token') || null;
 let profile = null;
@@ -202,6 +202,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     if (item.dataset.view === 'diet') renderDietView();
     if (item.dataset.view === 'devices') renderDevices();
     if (item.dataset.view === 'profile') renderProfile();
+    if (item.dataset.view === 'target') renderTarget();
     if (item.dataset.view === 'smartchoice') document.getElementById('chat-input').focus();
   });
 });
@@ -321,33 +322,51 @@ document.getElementById('workout-form').addEventListener('submit', async (e) => 
 
 async function renderDietView() {
   try {
-    const [{ food }, { supplements }] = await Promise.all([api('/logs/day/' + todayStr()), api('/supplements')]);
-    const totals = food.reduce((sum, entry) => ({
+    let food;
+    const { supplements } = await api('/supplements');
+    try {
+      const result = await api('/logs/nutritionize', { method: 'POST', body: JSON.stringify({ date: todayStr() }) });
+      ({ food } = result);
+      if (result.skipped?.length) {
+        showToast(result.skipped[0].error || 'Could not estimate nutrition for one or more foods.', true);
+      }
+    } catch (err) {
+      showToast(err.message, true);
+      ({ food } = await api('/logs/day/' + todayStr()));
+    }
+    const dietEntries = [
+      ...food,
+      ...supplements.map(supplement => ({
+        ...supplement,
+        name: `${supplement.name} (${supplement.dose})`,
+      })),
+    ];
+    const totals = dietEntries.reduce((sum, entry) => ({
       protein: sum.protein + Number(entry.protein || 0), carbs: sum.carbs + Number(entry.carbs || 0),
       fat: sum.fat + Number(entry.fat || 0), fiber: sum.fiber + Number(entry.fiber || 0),
     }), { protein: 0, carbs: 0, fat: 0, fiber: 0 });
     Object.entries(totals).forEach(([key, value]) => { document.getElementById('macro-' + key).textContent = Math.round(value * 10) / 10 + ' g'; });
-    renderDietChart(food);
+    renderDietChart(dietEntries);
     renderSupplementList(supplements);
   } catch (err) { showToast(err.message, true); }
 }
 
-function renderDietChart(food) {
-  document.getElementById('diet-empty').hidden = food.length > 0;
+function renderDietChart(entries) {
+  document.getElementById('diet-empty').hidden = entries.length > 0;
   const ctx = document.getElementById('diet-chart').getContext('2d');
   if (dietChart) dietChart.destroy();
   dietChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: food.map((entry, index) => entry.name.length > 18 ? entry.name.slice(0, 18) + '…' : entry.name || 'Meal ' + (index + 1)),
+      labels: entries.map((entry, index) => entry.name.length > 18 ? entry.name.slice(0, 18) + '…' : entry.name || 'Meal ' + (index + 1)),
       datasets: [
-        { label: 'Protein', data: food.map(entry => entry.protein || 0), borderColor: '#2F5233', backgroundColor: '#2F5233', tension: 0.3 },
-        { label: 'Carbs', data: food.map(entry => entry.carbs || 0), borderColor: '#B9832B', backgroundColor: '#B9832B', tension: 0.3 },
-        { label: 'Fat', data: food.map(entry => entry.fat || 0), borderColor: '#B45F58', backgroundColor: '#B45F58', tension: 0.3 },
-        { label: 'Fiber', data: food.map(entry => entry.fiber || 0), borderColor: '#567A91', backgroundColor: '#567A91', tension: 0.3 },
+        { label: 'Protein', data: entries.map(entry => entry.protein == null ? null : Number(entry.protein)), borderColor: '#2F5233', backgroundColor: '#2F5233', pointRadius: 5, pointHoverRadius: 7, tension: 0.3 },
+        { label: 'Carbs', data: entries.map(entry => entry.carbs == null ? null : Number(entry.carbs)), borderColor: '#B9832B', backgroundColor: '#B9832B', pointRadius: 5, pointHoverRadius: 7, tension: 0.3 },
+        { label: 'Fat', data: entries.map(entry => entry.fat == null ? null : Number(entry.fat)), borderColor: '#B45F58', backgroundColor: '#B45F58', pointRadius: 5, pointHoverRadius: 7, tension: 0.3 },
+        { label: 'Fiber', data: entries.map(entry => entry.fiber == null ? null : Number(entry.fiber)), borderColor: '#567A91', backgroundColor: '#567A91', pointRadius: 5, pointHoverRadius: 7, tension: 0.3 },
       ],
     },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, title: { display: true, text: 'grams' } } } },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 200, title: { display: true, text: 'grams' } } } },
   });
 }
 
@@ -464,6 +483,11 @@ async function renderCalendar() {
     });
     grid.appendChild(el);
   }
+  while (grid.children.length < 42) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
   await renderCalDetail(calSelected);
 }
 
@@ -523,6 +547,63 @@ async function toggleDevice(key) {
 }
 document.getElementById('google-connect-btn').addEventListener('click', () => toggleDevice('google'));
 document.getElementById('strava-connect-btn').addEventListener('click', () => toggleDevice('strava'));
+
+/* ---------------- target ---------------- */
+const measurementFields = ['chest', 'thigh', 'biceps', 'shoulder', 'waist', 'hip'];
+
+async function renderTarget() {
+  try {
+    const { user } = await api('/auth/me');
+    profile = user;
+    document.getElementById('target-goal').value = profile.targetGoal || profile.goal || 'muscle';
+    document.getElementById('target-weight').value = profile.targetWeight || profile.weight || '';
+    document.getElementById('target-time-value').value = profile.targetTimeValue || 1;
+    document.getElementById('target-time-unit').value = profile.targetTimeUnit || 'month';
+    const measurements = profile.measurements || {};
+    measurementFields.forEach(field => {
+      document.getElementById('measurement-' + field).value = measurements[field] || '';
+    });
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+document.getElementById('target-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('target-error');
+  const successBox = document.getElementById('target-success');
+  const button = document.getElementById('target-save');
+  errorBox.style.display = 'none';
+  successBox.style.display = 'none';
+  button.disabled = true;
+  button.textContent = 'Saving…';
+  const measurements = {};
+  measurementFields.forEach(field => {
+    const value = document.getElementById('measurement-' + field).value;
+    if (value) measurements[field] = Number(value);
+  });
+  try {
+    const data = await api('/auth/me/target', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        goal: document.getElementById('target-goal').value,
+        targetWeight: Number(document.getElementById('target-weight').value),
+        timeValue: Number(document.getElementById('target-time-value').value),
+        timeUnit: document.getElementById('target-time-unit').value,
+        measurements,
+      }),
+    });
+    profile = data.user;
+    successBox.textContent = 'Target updated. SmartChoice will use these details.';
+    successBox.style.display = 'block';
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = 'block';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Save target';
+  }
+});
 
 /* ---------------- profile ---------------- */
 async function renderProfile() {

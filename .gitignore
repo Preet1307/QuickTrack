@@ -1,5 +1,7 @@
 # Dependencies
 backend/node_modules/
+node_modules/
+public/
 
 # Environment variables and secrets
 backend/.env

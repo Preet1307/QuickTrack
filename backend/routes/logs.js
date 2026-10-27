@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const asyncHandler = require('../utils/asyncHandler');
 const { estimateCalories } = require('../services/calorieEstimator');
 const { estimateNutrition } = require('../services/nutritionEstimator');
 
@@ -33,19 +34,51 @@ function summarize(entries) {
   };
 }
 
-router.get('/target', (req, res) => {
-  const user = db.findUserById(req.userId);
+router.get('/target', asyncHandler(async (req, res) => {
+  const user = await db.findUserById(req.userId);
   res.json({ target: dailyTarget(user) });
-});
+}));
 
-router.get('/day/:date', (req, res) => {
+router.get('/day/:date', asyncHandler(async (req, res) => {
   const { date } = req.params;
   if (!DATE_RE.test(date)) return res.status(400).json({ error: 'Date must be in YYYY-MM-DD format.' });
-  const entries = db.getLogsForDate(req.userId, date);
+  const entries = await db.getLogsForDate(req.userId, date);
   res.json(summarize(entries));
-});
+}));
 
-router.post('/entry', async (req, res) => {
+router.post('/nutritionize', asyncHandler(async (req, res) => {
+  const date = String(req.body?.date || todayStr());
+  if (!DATE_RE.test(date)) return res.status(400).json({ error: 'Date must be in YYYY-MM-DD format.' });
+  const user = await db.findUserById(req.userId);
+  const foods = (await db.getLogsForDate(req.userId, date)).filter(entry => entry.type === 'food');
+  const updated = [];
+  const skipped = [];
+
+  for (const food of foods) {
+    if ([food.protein, food.carbs, food.fat, food.fiber].every(value => value != null && Number.isFinite(Number(value)))) {
+      updated.push(food);
+      continue;
+    }
+    try {
+      const nutrition = await estimateNutrition({ name: String(food.name).slice(0, 500), user, calories: food.cal });
+      updated.push(await db.updateLogNutrition(req.userId, food.id, {
+        protein: nutrition.protein,
+        carbs: nutrition.carbs,
+        fat: nutrition.fat,
+        fiber: nutrition.fiber,
+        nutritionStatus: null,
+      }));
+    } catch (err) {
+      await db.updateLogNutrition(req.userId, food.id, { nutritionStatus: 'unavailable' });
+      skipped.push({ id: food.id, name: food.name, error: err.message });
+    }
+  }
+
+  const enrichedById = new Map(updated.filter(Boolean).map(entry => [entry.id, entry]));
+  res.json({ food: foods.map(food => enrichedById.get(food.id) || food), skipped });
+}));
+
+router.post('/entry', asyncHandler(async (req, res) => {
   const { date, type, name, cal } = req.body || {};
   if (!DATE_RE.test(date || '')) return res.status(400).json({ error: 'Date must be in YYYY-MM-DD format.' });
   if (!['food', 'workout'].includes(type)) return res.status(400).json({ error: 'Type must be "food" or "workout".' });
@@ -55,13 +88,17 @@ router.post('/entry', async (req, res) => {
   let nutrition = null;
   if (type === 'food') {
     try {
-      nutrition = await estimateNutrition({ name: String(name).trim().slice(0, 500), user: db.findUserById(req.userId) });
+      nutrition = await estimateNutrition({
+        name: String(name).trim().slice(0, 500),
+        user: await db.findUserById(req.userId),
+        calories: cal ? Number(cal) : undefined,
+      });
       if (!cal) numCal = nutrition.calories;
       estimated = true;
     } catch (err) {
       if (!cal) {
         try {
-          numCal = await estimateCalories({ type, name: String(name).trim().slice(0, 500), user: db.findUserById(req.userId) });
+          numCal = await estimateCalories({ type, name: String(name).trim().slice(0, 500), user: await db.findUserById(req.userId) });
           estimated = true;
         } catch (fallbackErr) {
           return res.status(502).json({ error: fallbackErr.message });
@@ -70,7 +107,7 @@ router.post('/entry', async (req, res) => {
     }
   } else if (!cal) {
     try {
-      numCal = await estimateCalories({ type, name: String(name).trim().slice(0, 500), user: db.findUserById(req.userId) });
+      numCal = await estimateCalories({ type, name: String(name).trim().slice(0, 500), user: await db.findUserById(req.userId) });
       estimated = true;
     } catch (err) {
       return res.status(502).json({ error: err.message });
@@ -78,28 +115,28 @@ router.post('/entry', async (req, res) => {
   }
   if (!numCal || numCal <= 0 || !Number.isFinite(numCal)) return res.status(400).json({ error: 'Calories must be a positive number.' });
 
-  const entry = db.addLogEntry(req.userId, {
+  const entry = await db.addLogEntry(req.userId, {
     date, type, name: String(name).trim(), cal: numCal,
     ...(nutrition ? { protein: nutrition.protein, carbs: nutrition.carbs, fat: nutrition.fat, fiber: nutrition.fiber } : {}),
   });
   res.status(201).json({ entry, estimated });
-});
+}));
 
-router.delete('/entry/:id', (req, res) => {
-  const removed = db.removeLogEntry(req.userId, req.params.id);
+router.delete('/entry/:id', asyncHandler(async (req, res) => {
+  const removed = await db.removeLogEntry(req.userId, req.params.id);
   if (!removed) return res.status(404).json({ error: 'Entry not found.' });
   res.json({ ok: true });
-});
+}));
 
 // Last 7 days (including today), oldest first.
-router.get('/week', (req, res) => {
+router.get('/week', asyncHandler(async (req, res) => {
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     days.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
   }
-  const entries = db.getLogsInRange(req.userId, days[0], days[days.length - 1]);
+  const entries = await db.getLogsInRange(req.userId, days[0], days[days.length - 1]);
   const byDate = {};
   days.forEach(d => { byDate[d] = { date: d, consumed: 0, burned: 0 }; });
   entries.forEach(e => {
@@ -108,10 +145,10 @@ router.get('/week', (req, res) => {
     else byDate[e.date].burned += e.cal;
   });
   res.json({ days: days.map(d => byDate[d]) });
-});
+}));
 
 // Per-day net calories for a given month, for the calendar view.
-router.get('/month/:year/:month', (req, res) => {
+router.get('/month/:year/:month', asyncHandler(async (req, res) => {
   const year = Number(req.params.year);
   const month = Number(req.params.month); // 1-12
   if (!year || !month || month < 1 || month > 12) {
@@ -121,7 +158,7 @@ router.get('/month/:year/:month', (req, res) => {
   const lastDay = new Date(year, month, 0).getDate();
   const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-  const entries = db.getLogsInRange(req.userId, start, end);
+  const entries = await db.getLogsInRange(req.userId, start, end);
   const byDate = {};
   entries.forEach(e => {
     if (!byDate[e.date]) byDate[e.date] = { date: e.date, consumed: 0, burned: 0 };
@@ -129,6 +166,6 @@ router.get('/month/:year/:month', (req, res) => {
     else byDate[e.date].burned += e.cal;
   });
   res.json({ days: Object.values(byDate) });
-});
+}));
 
 module.exports = router;

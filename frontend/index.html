@@ -120,9 +120,10 @@
     <div class="nav-item" data-view="diet">Diet &amp; Supplements</div>
     <div class="nav-item" data-view="calendar">Calendar</div>
     <div class="nav-item" data-view="devices">Connect devices</div>
-    <div class="nav-item" data-view="profile">Profile</div>
+    <div class="nav-item" data-view="target">Target</div>
     <div class="nav-item" data-view="smartchoice">SmartChoice</div>
     <div class="sidebar-spacer"></div>
+    <div class="nav-item" data-view="profile">Profile</div>
     <div class="nav-item logout" id="logout-btn">Log out</div>
   </div>
 
@@ -186,7 +187,7 @@
 
     <div class="view" id="view-calendar">
       <div class="panel-grid" style="grid-template-columns:1fr;">
-        <div class="panel">
+        <div class="panel calendar-panel">
           <div class="cal-header">
             <button id="cal-prev">‹</button>
             <div class="cal-title" id="cal-title"></div>
@@ -203,19 +204,22 @@
       <div class="diet-header">
         <div>
           <h1>Diet &amp; Supplements</h1>
-          <p>Gemini estimates the nutrients in every food you log and maps your intake across the day.</p>
+          <p>Estimation of nutrients in your food log.</p>
         </div>
         <div class="smartchoice-badge">Today</div>
       </div>
-      <div class="macro-grid">
-        <div class="macro-card protein"><span>Protein</span><strong id="macro-protein">0 g</strong></div>
-        <div class="macro-card carbs"><span>Carbs</span><strong id="macro-carbs">0 g</strong></div>
-        <div class="macro-card fat"><span>Fat</span><strong id="macro-fat">0 g</strong></div>
-        <div class="macro-card fiber"><span>Fiber</span><strong id="macro-fiber">0 g</strong></div>
+      <div class="macro-total-panel">
+        <h3>Total nutrition today</h3>
+        <div class="macro-total-list">
+          <div class="macro-total-row"><span>Protein</span><strong id="macro-protein">0 g</strong></div>
+          <div class="macro-total-row"><span>Carbs</span><strong id="macro-carbs">0 g</strong></div>
+          <div class="macro-total-row"><span>Fat</span><strong id="macro-fat">0 g</strong></div>
+          <div class="macro-total-row"><span>Fiber</span><strong id="macro-fiber">0 g</strong></div>
+        </div>
       </div>
       <div class="chart-panel diet-chart-panel">
         <h3>Daily nutrient timeline</h3>
-        <div class="desc">Approximate grams per logged food, in the order you ate it.</div>
+        <div class="desc">Approximate grams per logged food and daily supplement. Supplements appear after foods.</div>
         <div class="chart-wrap"><canvas id="diet-chart"></canvas></div>
         <div class="empty-note" id="diet-empty" hidden>Log a meal to start your nutrient timeline.</div>
       </div>
@@ -251,9 +255,6 @@
           <button class="btn-connect" id="strava-connect-btn">Connect Strava</button>
         </div>
       </div>
-      <div class="note-box">
-        Real syncing needs a small server-side piece: Google Health Connect and Strava both authenticate over OAuth, which has to run through a backend that holds a client secret — it can't happen from the browser alone. This button calls a real backend endpoint (<code>/api/devices/:key/toggle</code>); wire an OAuth redirect + callback into that route and it becomes a live sync.
-      </div>
     </div>
 
     <div class="view" id="view-profile">
@@ -283,6 +284,50 @@
       </div>
     </div>
 
+    <div class="view" id="view-target">
+      <div class="target-layout">
+        <div class="panel target-panel">
+          <div class="diet-header target-header">
+            <div>
+              <h1>Your target</h1>
+              <p>Set a clear outcome and timeline for your next phase.</p>
+            </div>
+            <div class="smartchoice-badge">Personal plan</div>
+          </div>
+          <form id="target-form" class="profile-form">
+            <div class="auth-error" id="target-error"></div>
+            <div class="auth-success" id="target-success"></div>
+            <div class="field"><label for="target-goal">Current goal</label>
+              <select id="target-goal" required>
+                <option value="lose">Weight loss</option>
+                <option value="muscle">Muscle gain</option>
+                <option value="gain">Weight gain</option>
+              </select>
+            </div>
+            <div class="field"><label for="target-weight">Target weight (kg)</label><input id="target-weight" type="number" min="30" max="300" step="0.1" required></div>
+            <div class="field"><label for="target-time-value">Time to reach target</label>
+              <div class="target-time"><input id="target-time-value" type="number" min="1" max="100" step="1" required><select id="target-time-unit" aria-label="Target time unit"><option value="week">Week(s)</option><option value="month">Month(s)</option><option value="year">Year(s)</option></select></div>
+            </div>
+            <button type="submit" class="btn-primary" id="target-save">Save target</button>
+          </form>
+        </div>
+        <details class="precise-monitoring">
+          <summary>Precise Monitoring <span>Optional selection</span></summary>
+          <div class="precise-content">
+            <p>Body measurements help SmartChoice make more relevant progress suggestions.</p>
+            <div class="measurement-grid">
+              <div class="field"><label for="measurement-chest">Chest (cm)</label><input id="measurement-chest" type="number" min="0.1" max="300" step="0.1"></div>
+              <div class="field"><label for="measurement-thigh">Thigh (cm)</label><input id="measurement-thigh" type="number" min="0.1" max="300" step="0.1"></div>
+              <div class="field"><label for="measurement-biceps">Biceps (cm)</label><input id="measurement-biceps" type="number" min="0.1" max="300" step="0.1"></div>
+              <div class="field"><label for="measurement-shoulder">Shoulder (cm)</label><input id="measurement-shoulder" type="number" min="0.1" max="300" step="0.1"></div>
+              <div class="field"><label for="measurement-waist">Waist (cm)</label><input id="measurement-waist" type="number" min="0.1" max="300" step="0.1"></div>
+              <div class="field"><label for="measurement-hip">Hip (cm)</label><input id="measurement-hip" type="number" min="0.1" max="300" step="0.1"></div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+
     <div class="view" id="view-smartchoice">
       <div class="smartchoice-shell">
         <div class="smartchoice-header">
@@ -305,6 +350,7 @@
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
